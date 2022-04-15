@@ -1,0 +1,485 @@
+---
+title: "Homework 1"
+author: "Mustafa Cömert"
+date: "13 04 2022"
+output: 
+  html_document :
+    code_folding : "hide"
+---
+
+In this homework, we are expected to select at least 3 different measures of interest from _EVDS_ of Central Bank of Turkey and at least 1 relevant __search keyword__ from _Google Trends_. The purpose of the homework is to get used to data manipulation and visualization of time series objects and interpret correlations among different measures of interest.
+
+# Introduction
+
+As a small individual investor, I started to invest in Borsa Istanbul approximately at the beginning of 2020. Since then, price of the XU100 index went up and down with an increasing trend as well as the volume in the market. In the mean time, USD Dollar/TRY exchange rate increased, too. Therefore, I wondered if there is any correlation between these 3 measeures of interest. My intiution tells me that XU100 price is highly correlated with USD Dollar/TRY exchange rate because they move almost always accordingly. On the other hand, the relation between Dollar rate and XU100 volume is harder to predict since the volume is very volatile lately. Lastly, I somehow sense that as XU100 price goes up, XU100 volume increase similarly. 
+
+The other part of the homework is about relevant Google Trends search keywords. I chose _Borsa_ term to examine the relation between the interests of people for stock market and stock prices or market volume. Second keyword is _Dolar_. My aim is to find the relation between search volume of Dolar in google trends data and USD Dollar/TRY exchange rate. 
+
+Shortly, my research questions are:
+
+* **Are the BIST100 Price and Volume correlated with Dollar Rate or each other?**
+
+* **Are Google Trends search volumes for _Dolar_ and _Borsa_ keywords correlated with Dollar Rate, BIST100 Price and Volume?**
+
+Let's examine the questions via visualizations and correlations tests.
+
+# Analaysis
+
+## Data Manipulation and Visualization
+
+Firstly, I picked the _BIST100 Prices_, _BIST100 Volume_ and _Dollar Rate_ data from [Electronic Data Delivery System (EVDS) of Central Bank of Turkey](https://evds2.tcmb.gov.tr/index.php?/evds/serieMarket). Secondly, _Dolar Search_ and _Borsa Search_ data are taken from [Google Trends](https://trends.google.com/trends/?geo=TR).
+
+Before reading the data, I activated necessary packages from R.
+
+```{r message=FALSE, warning=FALSE}
+#visualization package
+library(ggplot2) 
+#package for manipulation of dates 
+library(lubridate) 
+#time series package
+library(xts)
+#forecast package
+library(forecast)
+#package to plot correlations 
+library(corrplot) 
+```
+
+Next, I set the working directory and read the data of each measure of interest in _.csv_ format and manipulate them for the sake of visualization purposes. 
+
+### 1. EVDS Data (Weekly) :
+
+```{r message=FALSE, warning=FALSE}
+#set the working directory to read the data
+setwd("C:/Users/MUSTAFA CÖM/Desktop/Mustafa/Semester 8/IE360 - Statistical Forecasting/Homeworks/HW1/Data") 
+
+#read the weekly evds data in csv format
+evds_data <- read.csv(file = "EVDS.csv", header = TRUE, sep = ";") 
+
+#change colunm names properly
+colnames(evds_data) <- c("Date", "BIST100Price", "BIST100Volume", "DollarRate")
+
+#replace commas with dots then convert variable type from chr to num
+evds_data$BIST100Price <- as.numeric(gsub(",", ".", 
+                                          gsub("\\.", "", evds_data$BIST100Price)))
+evds_data$BIST100Volume <- as.numeric(gsub(",", ".", 
+                                           gsub("\\.", "", evds_data$BIST100Volume)))
+evds_data$DollarRate <- as.numeric(gsub(",", ".", 
+                                        gsub("\\.", "", evds_data$DollarRate)))
+
+#convert date variable from chr to Date
+evds_data$Date <- as.Date(evds_data$Date, format = "%Y-%m-%d")
+
+#add years to data as factor
+years <- c("2010":"2022")
+evds_data$Year <- factor(format(evds_data$Date, "%Y"), levels = years)
+```
+
+Here is the summary of EVDS data:
+
+```{r}
+#first 6 rows of the EVDS data
+head(evds_data)
+#summary of the EVDS data
+str(evds_data)
+```
+
+### 2. Google Trend Data (Monthly) :
+
+```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/MUSTAFA CÖM/Desktop/Mustafa/Semester 8/IE360 - Statistical Forecasting/Homeworks/HW1/Data") 
+#read the monthly google trend "Dolar" search data
+gt_dolar_data <- read.csv(file = "GTDolar.csv", header = T) 
+#change the names of the columns
+colnames(gt_dolar_data) <- c("Date","DolarSearch")
+#change the chr to num
+gt_dolar_data$DolarSearch <- as.numeric(gt_dolar_data$DolarSearch)
+#replace NA's with 0's
+gt_dolar_data$DolarSearch[is.na(gt_dolar_data$DolarSearch)] = 0 
+#turn months to complete date
+gt_dolar_data$Date <- as.Date(parse_date_time(gt_dolar_data$Date,"Ym"),
+                              format = "%Y-%m-%d")
+#add years to data frame as factors
+gt_dolar_data$Year <- factor(format(gt_dolar_data$Date, "%Y"), levels = years)
+
+#read the monthly google trend "Borsa" search data
+gt_borsa_data <- read.csv("GTBorsa.csv")
+#change the names of the columns
+colnames(gt_borsa_data) <- c("Date", "BorsaSearch") 
+#change the chr to num
+gt_borsa_data$BorsaSearch <- as.numeric(gt_borsa_data$BorsaSearch)
+
+#combine gt_borsa and gt_dolar data 
+gt_data <- cbind(gt_dolar_data, gt_borsa_data[,"BorsaSearch"])
+colnames(gt_data) <- c("Date", "DolarSearch", "Year", "BorsaSearch")
+```
+
+Here is the summary of Google Trends data:
+
+```{r}
+#summary of Google Trend data
+head(gt_data)
+str(gt_data)
+
+```
+
+### 3. EVDS Data (Monthly) :
+
+I tried to convert weekly data into monthly data by manipulation but I could not 
+managed it and it was very time consuming, so I decided to download monthly data 
+directly and manipulate it to find correlations between monthly EVDS data and
+Google Trend data
+
+```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/MUSTAFA CÖM/Desktop/Mustafa/Semester 8/IE360 - Statistical Forecasting/Homeworks/HW1/Data") 
+#read the monthly evds data in csv format
+evds_monthly_data <- read.csv(file = "EVDSmonthly.csv", header = TRUE, sep = ";") 
+#remove empty rows
+evds_monthly_data <- evds_monthly_data[!apply(evds_monthly_data == "", 1, all),]
+#change colunm names properly
+colnames(evds_monthly_data) <- c("Date", "BIST100Price", "BIST100Volume", "DollarRate")
+#replace commas with dots then convert variable type from chr to num
+evds_monthly_data$BIST100Price <- as.numeric(gsub(",", ".", 
+                                  gsub("\\.", "", evds_monthly_data$BIST100Price)))
+evds_monthly_data$BIST100Volume <- as.numeric(gsub(",", ".", 
+                                  gsub("\\.", "", evds_monthly_data$BIST100Volume)))
+evds_monthly_data$DollarRate <- as.numeric(gsub(",", ".", 
+                                  gsub("\\.", "", evds_monthly_data$DollarRate)))
+#turn months to complete date
+evds_monthly_data$Date <- as.Date(parse_date_time(evds_monthly_data$Date,"Ym"),
+                                  format = "%Y-%m-%d")
+#add years to data as factor
+years <- c("2010":"2022")
+evds_monthly_data$Year <- factor(format(evds_monthly_data$Date, "%Y"), levels = years)
+```
+
+Here is the summary of Monthly EVDS data:
+
+```{r}
+#first 6 rows of the EVDS data
+head(evds_monthly_data)
+#summary of the EVDS data
+str(evds_monthly_data)
+```
+
+## Time Plots of EVDS Data
+
+Since I decided use the __autoplot()__ function to create time plots of EVDS data, I need to create time series objects for them.
+
+```{r}
+#convert data to time series in order to make time plots with autoplot function
+evds_ts <- ts(evds_data[-1], start = 2010, frequency = 52)
+```
+
+Finally, we can plot time series of each object:
+
+### 1. Time Plot of __BIST100 Price__
+```{r}
+autoplot(evds_ts[,"BIST100Price"], size=1) +
+  geom_smooth(fill = NA, color="orange", size = 1) +
+  ggtitle("BIST100 Price") + ylab("Price in TL") + xlab("Year")
+```
+
+### 2. Time Plot of __BIST100 Volume__
+```{r}
+autoplot(evds_ts[,"BIST100Volume"], size=1) + 
+  geom_smooth(fill = NA, color="orange", size = 1) +
+  ggtitle("BIST100 Volume") + ylab("VOlume in Thousand TL") + xlab("Year")
+```
+
+### 3. Time Plot of __Dollar Rate__
+```{r}
+autoplot(evds_ts[,"DollarRate"], size=1) + 
+  geom_smooth(fill = NA, color="orange", size = 1) +
+  ggtitle("Dollar Exchange Rate") + ylab("Exchange Rate") + xlab("Year")
+```
+
+When we look at each of the 3 time plots, we can see the similarity in general. Here is some interpretations:
+
+* Especially, _BIST100 Price_ and _Dollar Rate_ plots are very alike in terms of trends and movements except for _BIST100 Price_ is more volatile.
+
+* Trend of the _BIST100 Price_ seems linear until 2019 and after that time becomes nonlinear.
+
+* Trend of _Dollar Rate_ seems nonlinear all the time between 2010 and 2022.
+
+* On the other hand, _BIST100 Volume_ plot seems flat until 2017 (no trend), after that time the volume started to increase significantly similar to other 2 plots.
+
+* _BIST100 Volume_ has the highest volatility and is exposed huge fall at 2021 different from other measures.
+
+* Although there are fluctuations on the each plot during positive trend, it is hard to interpret about seasonalities since there is no obvious pattern.
+
+Now, lets draw histograms and box plots for each measures of interest to further explanations.
+
+## Histograms and Box Plots of EVDS Data
+
+We can interpret about frequency distributions via histograms. We graph histograms for each year, thus we can interpret about each year seperately.
+
+Boxplots allow us to interpret data from different perspective. We have 5 number summary of the data, thus we can talk about characteristics of the data and especially about outliers.
+
+### 1. Histogram and Box Plot of __BIST100 Price__
+
+```{r}
+ggplot(data = evds_data, aes(x=BIST100Price)) +
+  geom_histogram(bins = 8, alpha = 0.3, aes(color = Year, fill = Year)) +
+  facet_wrap(Year~.,scales = "free",ncol = 5) +
+  labs(title = "Histograms of BIST100 Prices for Years 2010-2022",
+       x = "BIST100 Price",
+       y = "Frequency") +
+  theme(legend.position = "none") + 
+  theme(axis.text.x=element_text(angle=60, hjust=1.5, vjust = 1.5)) 
+```
+
+* Roughly, we can say that __BIST100 Prices__ increase throughout years.
+* Price intervals between 2010-2019 are around 200-300 TRY, which are relatively small compared to 2020-2022 which have intervals more than 600 TRY.
+* Frequency distributions of years are all different. Some years have distribution similar to normal, some are right-skewed and some are left-skewed. Thus, it is hard to interpret about distributions in general.
+
+```{r}
+ggplot(data = evds_data, aes(x=Year, y=BIST100Price)) +
+  geom_boxplot(aes(y=BIST100Price, fill = Year)) +
+  labs(title = "Boxplots of BIST100 Prices for Years 2010-2022",
+       x = "Years",
+       y = "BIST100 Prices")
+```
+
+Box plot of __BIST100 Prices__ for each year confirms our comments on histogram. Additionaly: 
+
+* In 2021, there are many outliers in the price that make it difficult to interpret.
+* It is very obvious that, increment in the price is greater after 2020.
+
+### 2. Histogram and Box Plot of __BIST100 Volume__
+```{r}
+ggplot(data = evds_data, aes(x=BIST100Volume)) +
+  geom_histogram(bins = 10, alpha = 0.3, aes(color = Year, fill = Year)) +
+  facet_wrap(Year~.,scales = "free",ncol = 5) +
+  labs(title = "Histograms of BIST100 Volumes for Years 2010-2022",
+       x = "BIST100 Volume in Thousand TRY",
+       y = "Frequency") +
+  theme(axis.text.x=element_text(angle=60, hjust=1.5, vjust = 1.5)) +
+  theme(legend.position = "none")
+```
+
+* Between 2010-2017, the volume in BIST100 is generally around 2-6 billion TRY. The distribution of the volume seems normal at these years.
+
+* After 2017, the volume increases significantly up to 50 billion TRY at the end of 2021. The distribution is right skewed that is similar to exponential.   
+
+```{r}
+ggplot(data = evds_data, aes(x=Year, y=BIST100Volume)) +
+  geom_boxplot(aes(y=BIST100Volume, fill = Year)) +
+  labs(title = "Boxplots of BIST100 Volumes for Years 2010-2022",
+       x = "Years",
+       y = "BIST100 Volumes in Thousand TRY") 
+```
+
+Similar to BIST100 Price, boxplot of BIST100 Volume confirms my comments on histogram. Additionaly:
+
+* Volume in 2021 has the widest interval and highest outlier value at nearly 90 billion TRY. 
+* In 2022, there are also some outlier values up to 75 billion TRY.
+
+### 3. Histogram and Box Plot of __Dollar Rate__
+```{r}
+ggplot(data = evds_data, aes(x=DollarRate)) +
+  geom_histogram(bins = 8, alpha = 0.3, aes(color = Year, fill = Year)) +
+  facet_wrap(Year~.,scales = "free",ncol = 5) +
+  labs(title = "Histograms of Dollar Exchange Rates for Years 2010-2022",
+       x = "Dollar Exchange Rates",
+       y = "Frequency") +
+  theme(legend.position = "none")
+```
+
+* We can see a regular increase in the USD/TRY exchange rate.
+
+* Intervals are around 0.3-0.4 until 2014, around 0.6-0.8 between 2014-2017 and 2019, around 3 at 2018, 2020 and 2022, and 6 at 2021 with widest interval.
+
+* Distributions are generally skewed to the right which is more likely to be the indicator of an increase. 
+
+```{r}
+ggplot(data = evds_data, aes(x=Year, y=DollarRate)) +
+  geom_boxplot(aes(y=DollarRate, fill = Year)) +
+  labs(title = "Boxplots of Dollar Rates for Years 2010-2022",
+       x = "Years",
+       y = "Dollar Rates")
+```
+
+In addition to the comments on histogram which holds:
+
+* We can see an exponential-like increase in USD/TRY exchange rate.
+
+* There are many outliers in 2021 which may be related to outliers of BIST100 Volume.
+ 
+## Time Plots of Google Trend Data
+
+Before drawing time series plots of Google Trends data, I created time series objects with __ts()__ function to use __autoplot()__ function.
+
+```{r}
+#convert google trend data to time series object
+gt_ts <- ts(gt_data[-1], start = 2010, frequency = 12)
+```
+
+### 1. Time Plot of Dolar Search
+
+```{r}
+autoplot(gt_ts[,"DolarSearch"],size = 1) +
+  geom_smooth(aes(y=gt_ts[,"DolarSearch"]),fill = NA, color="orange",size = 1) +
+  labs(title = "GT Dolar Search vs. Time",
+       x = "Time",
+       y = "GT Dolar Search" ) 
+```
+
+Time series plot of Google Trends __Dolar Search__ is very similar to EVDS __Dollar Exchange Rate__ in terms of positive exponential trend and movements. Thus, we can say that search volume for __Dolar__ in Google is strongly correlated with the value of USD/TRY exchange rate. There are two main differences between two plots as I observed. Firstly, Google Trends __Dolar Search__ reflects the declines in USD/TRY exchange rate way greater than actual declines. For example, the decline in the USD/TRY exchange rate at the beginning of 2022 is reflected greatly in the __Borsa Search__ of Google Trends data. Secondly, the volatility of the __Dolar Search__ is greater than __Dolar Exchange Rate__.
+
+### 2. Time Plot of Borsa Search
+
+```{r}
+autoplot(gt_ts[,"BorsaSearch"], size=1) +
+  geom_smooth(aes(y=gt_ts[,"BorsaSearch"]),fill = NA, color="orange",size = 1) +
+  labs(title = "GT Borsa Search vs. Time",
+       x = "Time",
+       y = "GT Borsa Search" ) 
+```
+
+It is harder to interpret on Google Trends __Borsa Search__ time plot. Between 2010-2016, we do not see a significant increase in contrary to __BIST100 Price__ but similar to __BIST100 Volume__. After 2017, search volume increases similar to the __BIST100 Price__. However, trend seems linear opposite to the nonlinear increase in price. Moreover, __Borsa Search__ is more volatile than __BIST100 Price__. Shortly, we can say that there is some correlations between them but it is weaker than the one between __Dolar Search__ and __Dolar Exchange Rate__. 
+
+## Box Plots of Google Trend Data
+
+### 1. Box Plot of Dolar Search
+
+```{r}
+ggplot(data = gt_data, aes(x=Year, y=DolarSearch)) +
+  geom_boxplot(aes(y=DolarSearch, fill=Year)) +
+  labs(title = "Boxplots of Dolar Search for Years 2010-2022",
+       x = "Years",
+       y = "Dolar Search")
+```
+
+Box plot of __Dolar Search__ is very similar to box plot of __Dollar Rate__ except for the different increments in 2022.
+
+### 2. Box Plot of Borsa Search
+
+```{r}
+ggplot(data = gt_data, aes(x=Year, y=BorsaSearch)) +
+  geom_boxplot(aes(y=BorsaSearch, fill=Year)) +
+  labs(title = "Boxplots of Dolar Search for Years 2010-2022",
+       x = "Years",
+       y = "Borsa Search")
+```
+
+Box plot of __Borsa Search__ seems similar to the box plot of __BIST100 Price__ until 2018. After that time, they do not resemble much which points out weak correlation.
+
+## Correlations
+
+After the interpretation via visualization, Pearson's product-moment correlation tests can be applied to check our research questions. The results of this test show us the soundness and the direction of the relationship between two measures of interest. Test results vary between -1 and . __-1__ indicates perfect negative relationship which means as one increase the other decrease. __1__ indicates perfect positive relationship which means two variables move together. Lastly, __0__ indicates no relationship.
+
+Now let's focus on the relationships between our EVDS data and Google Trends data:
+
+### Correlation between BIST100 Price and Dollar Rate
+```{r}
+cor.test(x = evds_data$BIST100Price, y = evds_data$DollarRate, 
+         method = "pearson", alternative = "greater")
+```
+
+We can say that there is a strong correlation between __Dolar Rate__ and __BIST100 Price__ which confirms our early comments.
+
+### Correlation between BIST100 Price and BIST100Volume
+```{r}
+cor.test(x = evds_data$BIST100Price, y = evds_data$BIST100Volume,
+         method = "pearson", alternative = "greater")
+```
+
+The correlation between __BIST100 Price__ and __BIST100 Volume__ is a little weaker than the correlation between __BIST100 Price__ and __Dollar Rate__, however it is still very strong.
+
+### Correlation between BIST100 VOlume and Dollar Rate
+```{r}
+cor.test(x = evds_data$BIST100Volume, y = evds_data$DollarRate,
+         method = "pearson", alternative = "greater")
+```
+
+Soundness of the correlation between __BIST100 Volume__ and __Dollar Rate__ is very similar to the correlation between __BIST100 Price__ and __BIST100 Volume__.
+
+### Correlation between Dollar Rate and Google Trend Dolar Search
+```{r}
+cor.test(x = evds_monthly_data$DollarRate, y = gt_data$DolarSearch,
+         method = "pearson", alternative = "greater")
+```
+
+We can say that people tend to search dolar more as USD/TRY exchange rate inncreases.
+
+### Correlation between BIST100 Price and Google Trend Borsa Search
+```{r}
+cor.test(x = evds_monthly_data$BIST100Price, y = gt_data$BorsaSearch, 
+         method = "pearson", alternative = "greater")
+```
+
+As stated above, __BIST100 Price__ and __Borsa Search__ is correlated but not as strong as the correlation between __Dollar Rate__ and __Dolar Search__.
+
+### Correlation between BIST100 Volume and Google Trend Borsa Search
+```{r}
+cor.test(x = evds_monthly_data$BIST100Volume, y = gt_data$BorsaSearch,
+         method = "pearson", alternative = "greater")
+```
+
+Similar to price, the volume is correlated to __Borsa Search__ but not as much as exchange rate dolar search relation.
+
+## Correlation Plot
+
+We can see the results of whole correlation test visually via correlation plot.
+
+Before doing it, we need to create monthly time series to match all EVDS data and Google Trends data
+
+```{r}
+
+evds_monthly_data_ts <- cbind(ts(evds_monthly_data[-c(1,5)], start = 2010, frequency = 12), 
+                              ts(gt_dolar_data$DolarSearch, start = 2010, frequency = 12),
+                              ts(gt_borsa_data$BorsaSearch, start = 2010, frequency = 12))
+colnames(evds_monthly_data_ts) <- c("BIST100 Price", "BIST100 Volume", "Dollar Rate", 
+                                    "GT Dolar Search", "GT Borsa Search")
+```
+
+Now, we can draw correlation plot:
+
+```{r}
+corrplot.mixed(cor(evds_monthly_data_ts, use="pairwise.complete.obs"), 
+               tl.col="black", tl.pos = "lt")
+```
+
+This is the visual representation of all correlations between measures of interest.
+
+## Scatter Plots
+
+Lastly, we can use scatter plots to extend our understanding on correlations.
+
+### Scatter Plots of EVDS Data
+
+```{r}
+par(mfrow=c(1,3))
+plot(x = evds_data$BIST100Price,y = evds_data$DollarRate,
+     main = "BIST100 Price vs. Dollar Rate",
+     xlab = "BIST100 Price", ylab = "Dollar Rate")
+plot(x = evds_data$BIST100Volume,y = evds_data$DollarRate,
+     main = "BIST100 Volume vs. Dollar Rate",
+     xlab = "BIST100 Volume", ylab = "DollarRate")
+plot(x = evds_data$BIST100Price,y = evds_data$BIST100Volume,
+     main = "BIST100 Price vs. BIST100 Volume",
+     xlab = "BIST100 Price", ylab = "BIST100 Volume)")
+```
+
+Between EVDS data, we can easily say that the strongest correlation is between __BIST100 Price__ and __Dollar Rate__. Thanks to scatter plot, we can interpret more about the relation. Firstly, the relation between them seems linear. Moreover, we can mention about the presence of some serial dependence. The relation between __Dollar Rate__ and __BIST100 Volume__ seems linear when dollar rate is betwen 2-6. After that, as dollar rate increases, volume scattered a lot which violates the constant variance assumption. Lastly, the relation between __BIST100 Price__ and __BIST100 Volume__ seems nonlinear and variance increases as price increases, which violation of constant variance assumption similar to previous relation I mentioned.
+
+### Scatter Plots of EVDS Data vs. Google Trends Data
+
+```{r}
+par(mfrow=c(1,3))
+plot(x = evds_monthly_data$BIST100Price,y = gt_borsa_data$BorsaSearch,
+     main = "BIST100 Price vs. GT Borsa Search",
+     xlab = "BIST100 Price", ylab = "GT Borsa Search")
+plot(x = evds_monthly_data$BIST100Volume,y = gt_borsa_data$BorsaSearch,
+     main = "BIST100 Volume vs. GT BorsaSearch",
+     xlab = "BIST100 Volume", ylab = "GT BorsaSearch")
+plot(x = evds_monthly_data$DollarRate,y = gt_dolar_data$DolarSearch,
+     main = "Dollar Rate vs. GT DolarSearch",
+     xlab = "Dollar Rate", ylab = "GT DolarSearch")
+```
+
+Firstly, as a consequence of high correlation test results, __Dolar Search__ and __Dollar Rate__ seems increase accordingly in a linear way. However, as dolar rate exceeds 10, we can see a lot of outlier data points which somehow sabotage the relation. The relation between __BIST100 Volume__ and __Borsa Search__ seems better than the relation between __BIST100 Price__ and __Borsa Search__. Volume and search relation seems nonlinear and violates the constant variance assumption when the volume in the market exceeds 10 billion TRY. Relation between price and search seems linear up to price of 1200. After that point, data scatters a lot and ruins the correlation.      
+
+# Conclusion
+
+To sum up, the correlations between __Dollar Rate__, __BIST100 Price__ and __BIST100 Volume__ are all very high and significant. Especially, __BIST100 Price__ moves accordingly to __Dollar Rate__. Other than that, Google Trends __Dolar Search__ has a strong correlation with the __Dolar Rate__. Relation between __Borsa Search__ and __BIST100 Price__ or __BIST100 Volume__ is not strong as the relation between dolar search and rate. To reveal the relations between measures of interest fully, further investigations are necessary. However, I can proudly say that they have some strong relations as I suspected. 

@@ -9,7 +9,7 @@
 ### Homework 2
 [Homework2 HTML](/IE360-HW2/IE360-HW2.html)
 
-[Homework1 R file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/IE360-HW2/IE360-HW2.R)
+[Homework2 R file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/IE360-HW2/IE360-HW2.R)
 
 [Homework2 RMD file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/IE360-HW2/IE360-HW2.Rmd)
 ### Homework 3

@@ -1,0 +1,239 @@
+---
+title: "Homework 2"
+author: "Mustafa Cömert"
+date: "14 05 2022"
+output: 
+  html_document :
+    code_folding : "hide"
+---
+# Introduction
+
+In the second homework, we are expected to forecast the sales of unleaded gasoline in the four quarter of 2007 with given potential independent variables and time series variables such as trend and seasonals. I will try to compose the best fitted time series regression model considering statistical evidences which support my analysis to forecast the UGS variable. 
+
+# Analysis
+
+## Data Manipulation and Plot of UGS
+
+Before starting the time series analysis, firstly read and manipulate the data in order to plot the necessary graph and conduct the time series analysis.
+
+```{r warning=FALSE, message=FALSE}
+# Set working directory properly
+setwd("C:/Users/MUSTAFA CÖM/Desktop/Mustafa/Semester 8/IE360 - Statistical Forecasting/Homeworks/HW2/IE360-HW2")
+
+# Necessary Packages
+library(ggplot2) # Plot   
+library(forecast) # Forecast
+library(xts) # Time Series
+library(GGally) # To find correlations
+
+# Manipulation of the data
+data <- read.csv(file = "IE360_Spring22_HW2_data.csv", header = T, sep = ",")
+colnames(data) <- c("Time", "UGS", "RNUV", "NLPG", "PU", "PG", "NUGV", "NDGV", "GNPA", "GNPC", "GNPT")
+data$Time <- as.yearqtr(gsub("_", " ", data$Time)) 
+data$UGS<- as.integer(gsub(" ","",data$UGS))
+data$NLPG<- as.integer(gsub(" ","",data$NLPG))
+data$NUGV<- as.integer(gsub(" ","",data$NUGV))
+data$GNPA<- as.integer(gsub(" ","",data$GNPA))
+data$GNPC<- as.integer(gsub(" ","",data$GNPC))
+data$GNPT<- as.integer(gsub(" ","",data$GNPT))
+
+# Convert data to time series
+data_ts0 <- xts(x = data[-1], order.by = data$Time, frequency = 4)
+```
+
+Then, check the summary of the data:
+
+```{r warning=FALSE}
+# Summary of the data
+str(data)
+```
+
+Finally, we can plot the time series of UGS and comment on it.
+
+```{r warning=FALSE, message=FALSE}
+# Plot the time series of UGS
+autoplot(data_ts0$UGS/1000) + 
+  geom_smooth(fill = NA, color="orange", size = 1) +
+  ggtitle("Unleaded Gasoline Sales in a Given Quarter") + xlab("Quarters") + 
+  ylab("Unleaded Gasoline Sales in millions of m^3")
+```
+
+Comments on the graph:
+
+* As can be seen from the graph and smoothing line, there is a negative trend in the UGS variable. It means that the sales of the unleaded gasoline tend to decrease over time. This trend also can be interpreted as, the UGS data are not mean stationary since mean of UGS decreases over time. 
+
+* Additionally, there is an obvious seasonality in the UGS data. The sales of the unleaded gasoline are tend to be lower at first quarters, which corresponds to winters and to be higher at the third quarters, which corresponds to summers. 
+
+* Lastly, the time series of UGS seem covariance stationary since the deviation of the data does not change over time.
+
+## Regression with Given Independent Variables
+
+Let's start to create regression models. I will start with given independent variables to check how much they explain about UGS variable. Before doing that, I will check the correlation pairs of the independent variables with UGS to find convenient variables to use in my regression analysis.
+
+```{r warning=FALSE, message=FALSE}
+# Correlation pairs of given variables
+ggpairs(data[2:11])
+```
+
+By checking the correlations pairs, it can be said that NLPG, PU, PG, NUGV, NDGV and GNPA have significant correlations with UGS variable. However, from the UGS-GNPA scatter plot, it can be seen that the relation between them are not proper for linear regression. Hence, I will not use GNPA variable in the regression model.
+
+First regression model contains NLGP, PU, PG, NUGV and NDGV variables.
+
+```{r warning=FALSE, message=FALSE}
+# Regression with given independent variables
+model0 <- lm(UGS ~ NLPG + PU + PG + NUGV + NDGV, data = data_ts0)
+summary(model0)
+checkresiduals(model0)
+```
+
+When we check the regression results, any of the independent variables seems significant. Therefore, this is not a valid and strong model. Instead of using each variable has a correlation with UGS variable, I decided to use the variable which has strongest correlation with UGS. Checking from the correlation pairs, NUGV has the strongest correlation. 
+
+```{r warning=FALSE, message=FALSE}
+# Regression with only NUGV variable
+model0_1 <- lm(UGS ~ NUGV, data_ts0)
+summary(model0_1)
+checkresiduals(model0_1)
+```
+
+When we check the results of the model, it can be said that the NUGV variable is significant. The model is valid since F-statistic is high enough. The model does not explain much about the UGS variable since adjusted R-squared value is only 0.4, which means there are a lot of missing informations in the model. When we check the residuals, the seasonality patterns can be seen easily. The autocorrelation function also tells us about the seasonality since ACF values are high in lag 4 which corresponds to the same quarter in the next year. Breusch-Godfrey test also prove that residuals are serially dependent.
+
+## Time Series Regression with Trend and Seasonality Variables
+
+As a result of the previous regressions' interpretations, it is better idea to construct a time series regression with trend and seasonality variables. Before doing that, let's check the autocorrelation function of the UGS variable to be sure about the seasonality:
+
+```{r warning=FALSE, message=FALSE}
+# Autocorrelation function
+acf(data_ts0$UGS, na.action = na.pass)
+```
+
+ACF of the UGS variable assures the seasonality in the UGS data and it is quarterly since ACF values peaks in the multiples of 4. We are also sure about trend thanks to plot of the UGS data. Before constructing the model, we need to add trend and seasonal variables into our data:
+
+```{r warning=FALSE, message=FALSE}
+# Add trend and seasonality
+data$Trend <- 1:32 # since there are eight years of data and 4 quarters in a year
+data$Quarter <- rep(1:4, 8)
+data_ts1 <- xts(x = data[-1], order.by = data$Time, frequency = 4)
+```
+
+Now, we can construct the time series regression with trend and seasonality variables:
+
+```{r warning=FALSE, message=FALSE}
+# Time series linear regression with trend and seasonality
+model1 <- lm(UGS ~ Trend + as.factor(Quarter), data = data_ts1)
+summary(model1)
+checkresiduals(model1)
+```
+
+The results of the time series regression analysis with trend and seasonality terms seem pretty solid. 
+
+* Median of the of residuals are close to 0. 
+* Residuals seem normally distributed. 
+* All coefficients are significant. 
+* Adjusted R-squared value is almost 0.9
+* F-statistics are very high.
+* Finally, the result of the Breusch-Godfrey test says that residuals are serially independent. 
+
+## Time Series Regression with Trend, Seasonality and Lagged Variables
+
+However, although the result of Breusch-Godfrey test says the opposite, I sense about some serial dependence in the plot of the residuals. To eliminate serial dependence and to improve the model, I will add lagged variables (previous quarters' values) into the model. Lagged variables are UGS(t-4).
+
+```{r warning=FALSE, message=FALSE}
+# Add one year (4 quarter) lagged variable
+data$UGS_lag4 <- c(rep(0,4), data$UGS[0:28])
+data_ts2 <- xts(x = data[-1], order.by = data$Time, frequency = 4)
+```
+
+Now, we can build the time series regression model with trend, seasonality and lagged variables:
+
+```{r warning=FALSE, message=FALSE}
+# Time series linear regression with trend, seasonals and lagged variable
+model2 <- lm(UGS ~ Trend + as.factor(Quarter) + UGS_lag4, data = data_ts2)
+summary(model2)
+checkresiduals(model2)
+```
+
+With the addition of the lagged variables, the model is obviously improved. 
+
+* Residual standard error decreased significantly.  
+* Adjusted R-squared increased to 0.94
+* F-statistics increased to 85
+* The result of the Breusch-Godfrey test for serial correlation increased to 0.33 which is a very strong result for serially independence.
+
+## Time Series Regression with Trend, Seasonality, Lagged and Dummy Variables
+
+When I checked the residuals again, there seems no serially dependence, but some residuals that is significantly greater than the others that weakens the model. The specific high errors are in the first quarter of 2001 and the last quarter of 2006. The reasons for these error need to be checked. It requires some deep research that I cannot do due to time restrictions. Instead, I will add some dummy variables to count for those huge errors and check whether the model is improved.
+
+```{r warning=FALSE, message=FALSE}
+# Add dummy variable to 5th and 28th observations
+data$Dummy <- rep(0,32)
+data$Dummy[c(5,28)] <- c(1,1)
+data_ts3 <- xts(x = data[-1], order.by = data$Time, frequency = 4)
+```
+
+Now, we can build the time series regression model with trend, seasonality, lagged and dummy variables:
+
+```{r warning=FALSE, message=FALSE}
+# Time series linear regression with extra dummy variable
+model2_1 <- lm(UGS ~ Trend + as.factor(Quarter) + UGS_lag4 + Dummy, data = data_ts3)
+summary(model2_1)
+checkresiduals(model2_1)
+```
+
+With the improvement of the dummy variable, the model is significantly improved again.
+
+* The residual standard error decreased significantly. 
+* Median of the resiudal are closer to 0.
+* Adjusted R-squared value increased to nearly 0.97
+* F-statistics increased to 135 which shows the soundness of the model
+* The only negative effect of the addition of the dummy variable is the result of the Breusch-Godfrey test for serial correlation decreased to 0.18 from 0.33, which is also very strong evidence for serially independence. Therefore we can compensate the decrease of the result. 
+
+## Addition of NUGV Independent Variable to Model
+
+Even we have very sound and valid time series linear regression model, I want to check if the addition of the NUGV variable, which is significantly correlated to UGS variable, will improve our model
+
+```{r warning=FALSE, message=FALSE}
+model3 <- lm(UGS ~ Trend + as.factor(Quarter) + UGS_lag4 + NUGV + Dummy, data = data_ts3)
+summary(model3)
+checkresiduals(model3)
+```
+
+After checking the results, we can say that addition of the NUGV variable distorted our model in a some way.
+
+* First of all, NUGV variable is not significant in the model.
+* F-statistics value decreased.
+* Breusch-Godfrey test for serial correlation result decreased.
+
+Therefore, I will not add the NUGV variable to my model. 
+
+## Forecast for the Quarters of 2007
+
+Finally, I can forecast the values of sales of unleaded gasoline for the each quarter of 2007. To forecast, I will use the model with trend, seasonality, lagged and dummy variables. My forecasts are as follows:
+
+```{r warning=FALSE, message=FALSE}
+# Predict the missing values with model2 which gives the best model
+predicted_UGS <- predict(model2_1,data_ts3)
+
+# Final time series that contains predicted and actual UGS values
+data_ts_final <- xts(x = data.frame(data$UGS, predicted_UGS), order.by = data$Time, frequency = 4)
+
+# Predicted values for the four quarters of 2007
+predicted_UGS[29:32]
+```
+
+You can also see predicted vs. actual UGS values in the following graph:
+
+```{r warning=FALSE, message=FALSE}
+# Plot predicted vs actual UGS
+plot(data_ts_final/1000,
+     legend.loc = "topright",
+     main = "Actual vs. Predicted UGS in a Given Quarter",
+     minor.ticks = "quarters",
+     grid.ticks.on = "quarters",
+     yaxis.right = FALSE, col = c("black","goldenrod"))
+```
+
+It can be said that my time series regression model fits the actual data very well.
+
+# Conclusion
+
+In conclusion, for the forecast of the UGS variable, the given independent variables are redundant. Only NUGV variable explains some information on UGS. On the other hand, trend and seasonality terms explain a lot about UGS variable. In addition to them, lagged and dummy variables are included to improve the model. All together, they are constructed pretty convenient model to forecast the four quarters of 2007.

@@ -12,7 +12,11 @@
 [Homework2 R file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/IE360-HW2/IE360-HW2.R)
 
 [Homework2 RMD file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/IE360-HW2/IE360-HW2.Rmd)
-### Homework 3
-### Homework 4
 
-[link](https://moodle.boun.edu.tr/my/)
+### Project
+
+[Project HTML](/GitHub/spring22-MustafaComert/Project/IE360-Project-Report-Group8.html)
+
+[Homework2 R file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/Project/ProjectGroup8.R)
+
+[Homework2 RMD file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/Project/IE360-Project-Report-Group8.Rmd)

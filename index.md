@@ -15,8 +15,8 @@
 
 ### Project
 
-[Project HTML](/GitHub/spring22-MustafaComert/Project/IE360-Project-Report-Group8.html)
+[Project HTML](file:///C:/Users/MUSTAFA%20C%C3%96M/Documents/GitHub/spring22-MustafaComert/Project/IE360-Project-Report-Group8.html)
 
-[Homework2 R file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/Project/ProjectGroup8.R)
+[Project R file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/Project/ProjectGroup8.R)
 
-[Homework2 RMD file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/Project/IE360-Project-Report-Group8.Rmd)
+[Project RMD file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/Project/IE360-Project-Report-Group8.Rmd)

@@ -15,7 +15,7 @@
 
 ### Project
 
-[Project HTML](/IE360-Project-Report-Group8.html)
+[Project HTML](https://bu-ie-360.github.io/spring22-MustafaComert/Project/IE360-Project-Report-Group8.html)
 
 [Project R file](https://github.com/BU-IE-360/spring22-MustafaComert/blob/gh-pages/Project/ProjectGroup8.R)
 
